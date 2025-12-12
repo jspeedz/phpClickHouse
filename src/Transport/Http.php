@@ -641,6 +641,7 @@ class Http
             && !str_starts_with($sql, 'DROP')
             && !str_starts_with($sql, 'ALTER')
             && !str_starts_with($sql, 'RENAME')
+            && !str_starts_with($sql, 'GRANT')
         ) {
             $query->setFormat('JSON');
         }
