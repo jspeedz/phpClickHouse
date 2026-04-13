@@ -2,7 +2,7 @@
 
 namespace ClickHouseDB\Tests;
 
-use ClickHouseDB\Exception\QueryException;
+use ClickHouseDB\Exception\DatabaseException;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -36,5 +36,101 @@ final class JsonTest extends TestCase
 //        die();
         $this->assertEquals($re,$state->rows());
 
+    }
+
+    public function testWriteCreateTableNotJsonRow()
+    {
+        $state=$this->client->write('CREATE TABLE testWriteNotJsonRow
+(
+    some_id UInt64,
+    some_time DateTime,
+    some_name String
+)
+ENGINE = MergeTree
+ORDER BY (some_time, some_id)');
+        $this->assertSame(false, $state->getFormat());
+        $this->assertSame([], $state->rows());
+
+        $state=$this->client->select('SHOW CREATE TABLE testWriteNotJsonRow');
+        $this->assertSame([
+            [
+                'statement' => 'CREATE TABLE php_clickhouse.testWriteNotJsonRow
+(
+    `some_id` UInt64,
+    `some_time` DateTime,
+    `some_name` String
+)
+ENGINE = MergeTree
+ORDER BY (some_time, some_id)
+SETTINGS index_granularity = 8192'
+            ]
+        ], $state->rows());
+
+        $this->client->write('DROP TABLE testWriteNotJsonRow SYNC');
+
+        $exceptionThrown = false;
+        try {
+            $this->client->select('SHOW CREATE TABLE testWriteNotJsonRow')
+                ->rows();
+        }
+        catch(\Throwable $e) {
+            $this->assertInstanceOf(DatabaseException::class, $e);
+            $this->assertSame('Table `testWriteNotJsonRow` doesn\'t exist. (CANNOT_GET_CREATE_TABLE_QUERY) 
+IN:SHOW CREATE TABLE testWriteNotJsonRow FORMAT JSON', $e->getMessage());
+
+            $exceptionThrown = true;
+        }
+
+        if(!$exceptionThrown) {
+            $this->fail('Expected exception');
+        }
+    }
+
+    public function testWriteCreateTableNotJsonRowOnCluster()
+    {
+        $state=$this->client->write('CREATE TABLE testWriteNotJsonRowOnCluster ON CLUSTER test_cluster
+(
+    some_id UInt64,
+    some_time DateTime,
+    some_name String
+)
+ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/{shard}/testWriteNotJsonRowOnCluster\', \'{replica}\')
+ORDER BY (some_time, some_id)');
+        $this->assertSame('JSON', $state->getFormat());
+        $this->assertSame([], $state->rows());
+
+        $state=$this->client->select('SHOW CREATE TABLE testWriteNotJsonRowOnCluster');
+        $this->assertSame([
+            [
+                'statement' => 'CREATE TABLE php_clickhouse.testWriteNotJsonRowOnCluster
+(
+    `some_id` UInt64,
+    `some_time` DateTime,
+    `some_name` String
+)
+ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/{shard}/testWriteNotJsonRowOnCluster\', \'{replica}\')
+ORDER BY (some_time, some_id)
+SETTINGS index_granularity = 8192'
+            ]
+        ], $state->rows());
+
+        $this->client->write('DROP TABLE testWriteNotJsonRowOnCluster ON CLUSTER test_cluster SYNC');
+
+        $exceptionThrown = false;
+        try {
+            $this->client->select('SHOW CREATE TABLE testWriteNotJsonRowOnCluster')
+                ->rows();
+        }
+        catch(\Throwable $e) {
+            $this->assertInstanceOf(DatabaseException::class, $e);
+            $this->assertSame('Table `testWriteNotJsonRowOnCluster` doesn\'t exist. (CANNOT_GET_CREATE_TABLE_QUERY) 
+IN:SHOW CREATE TABLE testWriteNotJsonRowOnCluster FORMAT JSON', $e->getMessage());
+
+            $exceptionThrown = true;
+        }
+
+        if(!$exceptionThrown) {
+            $this->fail('Expected exception');
+        }
     }
 }

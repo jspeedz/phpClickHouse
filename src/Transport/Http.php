@@ -686,11 +686,14 @@ class Http
             return $this->getRequestWrite($query, $querySettings);
         }
         if (
-            !str_starts_with($sql, 'CREATE')
-            && !str_starts_with($sql, 'DROP')
-            && !str_starts_with($sql, 'ALTER')
-            && !str_starts_with($sql, 'RENAME')
-            && !str_starts_with($sql, 'GRANT')
+            (
+                str_starts_with($sql, 'CREATE')
+                || str_starts_with($sql, 'DROP')
+                || str_starts_with($sql, 'ALTER')
+                || str_starts_with($sql, 'RENAME')
+                || str_starts_with($sql, 'GRANT')
+            )
+            && !str_starts_with($sql, 'CREATE USER')
         ) {
             $query->setFormat('JSON');
         }
